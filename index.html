@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ANOVA Lab</title>
+  <meta name="description" content="Module 10 – Analysis of Variance: comparing many means at once, as an interactive lesson.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open contents" aria-expanded="false">☰</button>
+  <a class="brand" href="#intro"><span class="brand-badge">M10</span> Analysis of Variance</a>
+  <div class="topbar-right">
+    <span class="score-pill" id="scorePill" title="Quiz score">Score <b id="scoreNow">0</b>/<span id="scoreMax">0</span></span>
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode">◐</button>
+  </div>
+  <div class="read-progress"><span id="readBar"></span></div>
+</header>
+
+<nav class="sidebar" id="sidebar" aria-label="Lesson contents">
+  <p class="side-label">Module 10 · Contents</p>
+  <ol class="toc" id="toc">
+    <li><a href="#intro">The question</a></li>
+    <li><a href="#roadmap">Where we are</a></li>
+    <li><a href="#why-not-t">Why not many t tests?</a></li>
+    <li class="toc-part">Part 1 · The idea of ANOVA</li>
+    <li><a href="#hypotheses">Hypotheses</a></li>
+    <li><a href="#signal-noise">Signal vs noise lab</a></li>
+    <li><a href="#f-ratio">The F ratio</a></li>
+    <li><a href="#f-dist">F distribution lab</a></li>
+    <li class="toc-part">Part 2 · One-way ANOVA</li>
+    <li><a href="#formulas">Notation &amp; formulas</a></li>
+    <li><a href="#example">Worked example</a></li>
+    <li class="toc-part">Part 3 · After the F test</li>
+    <li><a href="#posthoc">Post hoc: Tukey HSD</a></li>
+    <li><a href="#effect">Effect size η²</a></li>
+    <li><a href="#assumptions">Assumptions</a></li>
+    <li class="toc-part">Part 4 · Two-way ANOVA</li>
+    <li><a href="#two-way">Two factors at once</a></li>
+    <li><a href="#interaction">Interaction lab</a></li>
+    <li><a href="#two-way-table">Reading the table</a></li>
+    <li class="toc-part">Practice</li>
+    <li><a href="#mistakes">Common mistakes</a></li>
+    <li><a href="#challenge">In-class challenge</a></li>
+    <li><a href="#calculator">ANOVA calculator</a></li>
+    <li><a href="#summary">Summary</a></li>
+  </ol>
+  <button class="link-btn" id="resetBtn">Reset my progress</button>
+</nav>
+<div class="scrim" id="scrim"></div>
+
+<main class="content">
+
+  <!-- ============ INTRO ============ -->
+  <section class="hero" id="intro">
+    <div class="hero-text">
+      <p class="eyebrow">Statistics &amp; Probability · Module 10</p>
+      <h1>Analysis of Variance</h1>
+      <p class="hero-sub">Comparing many means at once</p>
+      <p class="hero-flow">Between groups <span>÷</span> Within groups <span>=</span> F</p>
+    </div>
+    <svg class="hero-plot" id="heroPlot" role="img" aria-label="Dot plot of response times for three caching strategies with their group means"></svg>
+  </section>
+
+  <section class="card" id="claim-card">
+    <h2>A question with three groups</h2>
+    <p class="lead">A team benchmarks three caching strategies for the same API. Each strategy gets 5 test runs.</p>
+    <div class="three-col">
+      <div class="claim-box gbox a"><p class="mini-label">A · No cache</p><p class="gmean">x̄ = 50 ms</p><p class="muted small">5 test runs</p></div>
+      <div class="claim-box gbox b"><p class="mini-label">B · Redis</p><p class="gmean">x̄ = 40 ms</p><p class="muted small">5 test runs</p></div>
+      <div class="claim-box gbox c"><p class="mini-label">C · In-memory</p><p class="gmean">x̄ = 44 ms</p><p class="muted small">5 test runs</p></div>
+    </div>
+    <p class="big-q">50, 40 and 44 ms … are the three strategies <em>really different</em>, or is it just <em>noise</em>?</p>
+    <div class="guess" id="guess">
+      <p>Make a gut guess before learning the theory:</p>
+      <div class="btn-row">
+        <button class="btn choice" data-guess="real">At least one is really different</button>
+        <button class="btn choice" data-guess="noise">It's just run-to-run noise</button>
+      </div>
+      <p class="guess-note" id="guessNote" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============ ROADMAP ============ -->
+  <section class="card" id="roadmap">
+    <h2>Where we are in the course</h2>
+    <ol class="path">
+      <li><b>One mean, large n</b><span>Module 8 · z test</span></li>
+      <li><b>One mean, small n</b><span>Module 9 · t test</span></li>
+      <li class="here"><b>Many means</b><span>Module 10 · ANOVA, F</span></li>
+      <li><b>Relationships</b><span>Module 11 · Regression</span></li>
+    </ol>
+    <div class="two-col">
+      <div class="panel">
+        <p class="panel-title">Modules 8–9</p>
+        <p>Is μ equal to a claimed value?</p>
+      </div>
+      <div class="panel accent">
+        <p class="panel-title">Module 10</p>
+        <p>Are μ₁, μ₂, μ₃, … all equal?</p>
+      </div>
+    </div>
+    <p class="takeaway">New question, new statistic: <b>F</b>.</p>
+  </section>
+
+  <!-- ============ WHY NOT T ============ -->
+  <section class="card" id="why-not-t">
+    <h2>Why not just run many t tests?</h2>
+    <p class="lead">With k groups you would need a t test for every pair. Each test has its own chance α of a false alarm, and those chances pile up.</p>
+    <div class="formula big">
+      P(at least one false alarm) = 1 − (1 − α)<sup>m</sup>
+      <span class="formula-note">m = k(k − 1) / 2 pairwise tests</span>
+    </div>
+
+    <div class="lab" id="fwLab">
+      <p class="lab-title">False-alarm lab</p>
+      <div class="lab-grid">
+        <div class="controls">
+          <label>Number of groups k <output id="fw-k-o"></output>
+            <input type="range" id="fw-k" min="2" max="10" step="1" value="3"></label>
+          <div class="seg" role="group" aria-label="Significance level of each test" id="fw-alpha">
+            <button data-v="0.10">α = 0.10</button><button data-v="0.05">α = 0.05</button><button data-v="0.01">α = 0.01</button>
+          </div>
+          <div class="stat-tiles">
+            <div><span>Pairs m</span><b id="fw-m">–</b></div>
+            <div><span>Each test</span><b id="fw-a">–</b></div>
+            <div><span>Overall risk</span><b id="fw-r">–</b></div>
+          </div>
+        </div>
+        <div>
+          <svg id="fwPlot" class="plot" role="img" aria-label="Curve of the overall false-alarm probability against the number of pairwise tests"></svg>
+          <p class="calc-line" id="fw-out"></p>
+        </div>
+      </div>
+      <div class="sim">
+        <div class="btn-row">
+          <button class="btn primary" id="fwRun">Simulate 2,000 experiments where H₀ is true</button>
+          <span class="sim-stats" id="fwStats"></span>
+        </div>
+        <div class="ms-bars" id="fwBars" hidden>
+          <div class="ms-row"><span>All pairwise t tests</span><div class="ms-track"><i class="b" id="fwBarT"></i></div><b id="fwValT"></b></div>
+          <div class="ms-row"><span>One ANOVA F test</span><div class="ms-track"><i class="g" id="fwBarF"></i></div><b id="fwValF"></b></div>
+        </div>
+        <p class="muted small">Every simulated group comes from the <em>same</em> population (5 runs per group), so any “significant” result is a false alarm. The formula assumes independent tests. Real pairwise tests share data, so their rate is a little lower, but still far above α.</p>
+      </div>
+    </div>
+    <p class="callout"><b>The fix:</b> ANOVA tests all means in one go, keeping the overall error rate at α.</p>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <div class="part-divider" id="part1">
+    <span>Part 1</span>
+    <h2>The idea of ANOVA</h2>
+    <p>Comparing means by comparing variances</p>
+  </div>
+
+  <section class="card" id="hypotheses">
+    <h2>Hypotheses in ANOVA</h2>
+    <div class="two-col">
+      <div class="panel"><p class="panel-title">H₀ — Null hypothesis</p><p class="formula small">H₀: μ₁ = μ₂ = μ₃ = … = μ<sub>k</sub></p><p class="muted">All population means are equal.</p></div>
+      <div class="panel accent"><p class="panel-title">H₁ — Alternative hypothesis</p><p class="formula small">H₁: at least one μ<sub>i</sub> differs</p><p class="muted">Not all population means are equal.</p></div>
+    </div>
+    <div class="two-col">
+      <div class="panel ok-tint"><p class="panel-title">✓ Correct reading of H₁</p><p>At least one group mean is different from the others.</p></div>
+      <div class="panel rej-tint"><p class="panel-title">✗ Wrong reading of H₁</p><p>All group means are different from each other.</p></div>
+    </div>
+    <p class="callout">ANOVA tells you <b>whether</b> there is a difference — not <b>where</b> it is.</p>
+    <div class="quiz" id="quizH1" data-title="The F test was significant. What can you say?"></div>
+  </section>
+
+  <section class="card" id="signal-noise">
+    <h2>Same means, different stories</h2>
+    <p class="lead">Whether three means “look different” depends on how much the values scatter <em>inside</em> each group. Move the sliders and watch F react.</p>
+
+    <div class="lab" id="snLab">
+      <p class="lab-title">Signal vs noise lab</p>
+      <div class="lab-grid">
+        <div class="controls">
+          <label>Gap between group means <output id="sn-d-o"></output>
+            <input type="range" id="sn-d" min="0" max="15" step="0.5" value="10"></label>
+          <label>Spread inside each group (σ) <output id="sn-s-o"></output>
+            <input type="range" id="sn-s" min="1" max="14" step="0.5" value="4"></label>
+          <label>Runs per group n <output id="sn-n-o"></output>
+            <input type="range" id="sn-n" min="3" max="20" step="1" value="5"></label>
+          <label class="check"><input type="checkbox" id="sn-wobble"> Random sampling: let sample means vary by chance</label>
+          <div class="btn-row">
+            <button class="btn" id="sn-new">New sample</button>
+          </div>
+          <div class="btn-row presets">
+            <button class="btn small" data-preset="small">Small spread</button>
+            <button class="btn small" data-preset="large">Large spread</button>
+            <button class="btn small" data-preset="null">H₀ true</button>
+          </div>
+        </div>
+        <div>
+          <svg id="snPlot" class="plot" role="img" aria-label="Dot plot of three groups whose means and spread follow the sliders"></svg>
+          <div class="ms-bars">
+            <div class="ms-row"><span>Signal · MS between</span><div class="ms-track"><i class="b" id="snBarB"></i></div><b id="snValB"></b></div>
+            <div class="ms-row"><span>Noise · MS within</span><div class="ms-track"><i class="w" id="snBarW"></i></div><b id="snValW"></b></div>
+          </div>
+          <div class="stat-tiles four">
+            <div><span>F = signal ÷ noise</span><b id="sn-F">–</b></div>
+            <div><span>F-crit (α = 0.05)</span><b id="sn-crit">–</b></div>
+            <div><span>p-value</span><b id="sn-p">–</b></div>
+            <div><span>η²</span><b id="sn-eta">–</b></div>
+          </div>
+        </div>
+      </div>
+      <p class="verdict-banner" id="sn-verdict"></p>
+      <p class="muted small">Try it: keep the gap at 10 and raise the spread. The means stay at 40, 50, 60 but F collapses. Then press <b>H₀ true</b> and <b>New sample</b> a few times: with equal population means F hovers around 1 and only rarely passes F-crit.</p>
+    </div>
+
+    <h3>Two sources of variation</h3>
+    <div class="two-col">
+      <div class="panel rej-tint">
+        <p class="panel-title">Between groups</p>
+        <p>How far the group means are from the grand mean.</p>
+        <p class="muted">Contains: treatment effect + noise</p>
+      </div>
+      <div class="panel accent">
+        <p class="panel-title">Within groups</p>
+        <p>How spread out the values are inside each group.</p>
+        <p class="muted">Contains: noise only</p>
+      </div>
+    </div>
+    <p class="takeaway">If H₀ is true, both estimate the same noise → ratio ≈ 1</p>
+  </section>
+
+  <section class="card" id="f-ratio">
+    <h2>The F ratio</h2>
+    <div class="formula big">
+      F = <span class="frac"><span>MS between</span><span>MS within</span></span>
+      <span class="formula-note">signal ÷ noise</span>
+    </div>
+    <div class="three-col compact">
+      <div class="panel"><p class="panel-title">Signal: MS between</p><p class="muted">Variance of the group means (scaled by n)</p></div>
+      <div class="panel"><p class="panel-title">Noise: MS within</p><p class="muted">Pooled variance inside the groups</p></div>
+      <div class="panel"><p class="panel-title">F</p><p class="muted">How many times bigger the signal is than the noise</p></div>
+    </div>
+
+    <h3>Reading the F value</h3>
+    <div class="three-col compact">
+      <div class="panel ok-tint"><p class="panel-title">F ≈ 1</p><p>Group means differ about as much as noise predicts.</p><p class="muted">No evidence against H₀</p></div>
+      <div class="panel rej-tint"><p class="panel-title">F ≫ 1</p><p>Group means differ much more than noise predicts.</p><p class="muted">Evidence against H₀</p></div>
+      <div class="panel"><p class="panel-title">F &lt; 0 ?</p><p>Impossible — both parts are variances.</p><p class="muted">F ≥ 0 always</p></div>
+    </div>
+    <p class="callout">Large F → reject H₀. How large is “large”? The <b>F distribution</b> decides.</p>
+    <div class="quiz" id="quizF" data-title="Read the F value"></div>
+  </section>
+
+  <section class="card" id="f-dist">
+    <h2>The F distribution</h2>
+    <div class="three-col compact">
+      <div class="panel"><p class="panel-title">Right-skewed</p><p class="muted">Never negative, with a long right tail</p></div>
+      <div class="panel"><p class="panel-title">Two df</p><p class="muted">(k − 1, N − k): numerator and denominator</p></div>
+      <div class="panel"><p class="panel-title">One tail</p><p class="muted">Reject only in the right tail</p></div>
+    </div>
+
+    <div class="lab" id="fLab">
+      <p class="lab-title">F distribution lab</p>
+      <div class="lab-toolbar">
+        <div class="seg" role="group" aria-label="Significance level" id="fl-alpha">
+          <button data-v="0.10">α = 0.10</button><button data-v="0.05">α = 0.05</button><button data-v="0.01">α = 0.01</button>
+        </div>
+        <button class="btn small" id="fl-slide">Slide example: F(4, 20)</button>
+        <button class="btn small" id="fl-cache">Caching example: F(2, 12)</button>
+      </div>
+      <div class="lab-grid">
+        <div class="controls">
+          <label>Groups k <output id="fl-k-o"></output>
+            <input type="range" id="fl-k" min="2" max="8" step="1" value="5"></label>
+          <label>Observations per group n <output id="fl-n-o"></output>
+            <input type="range" id="fl-n" min="2" max="30" step="1" value="5"></label>
+          <label>Observed F <output id="fl-F-o"></output>
+            <input type="range" id="fl-F" min="0" max="8" step="0.01" value="2"></label>
+          <div class="stat-tiles">
+            <div><span>df</span><b id="fl-df">–</b></div>
+            <div><span>F-crit</span><b id="fl-crit">–</b></div>
+            <div><span>p-value</span><b id="fl-p">–</b></div>
+          </div>
+        </div>
+        <div>
+          <svg id="flPlot" class="plot" role="img" aria-label="F distribution with the right-tail rejection region and the p-value area"></svg>
+          <div class="legend">
+            <span><i class="sw rej"></i>Rejection region (area α)</span>
+            <span><i class="sw pv"></i>p-value area</span>
+          </div>
+        </div>
+      </div>
+      <p class="verdict-banner" id="fl-verdict"></p>
+    </div>
+
+    <h3>Critical values of F <small class="hint">— α follows the lab above</small></h3>
+    <div class="table-wrap">
+      <table class="crit-table" id="fTable"></table>
+    </div>
+    <p class="muted small">Columns are the numerator df (k − 1), rows the denominator df (N − k). The highlighted cell is the lab's current pair of df, when it is in the table.</p>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <div class="part-divider" id="part2">
+    <span>Part 2</span>
+    <h2>One-way ANOVA step by step</h2>
+    <p>Caching strategies and API response time</p>
+  </div>
+
+  <section class="card" id="formulas">
+    <h2>Notation</h2>
+    <div class="three-col compact">
+      <div class="panel"><p class="panel-title">k</p><p class="muted">Number of groups · here k = 3</p></div>
+      <div class="panel"><p class="panel-title">n<sub>i</sub></p><p class="muted">Size of group i · here n<sub>i</sub> = 5</p></div>
+      <div class="panel"><p class="panel-title">N</p><p class="muted">Total observations · here N = 15</p></div>
+      <div class="panel"><p class="panel-title">x̄<sub>i</sub></p><p class="muted">Mean of group i · 50, 40, 44</p></div>
+      <div class="panel"><p class="panel-title">x̿</p><p class="muted">Grand mean of all data · 44.67</p></div>
+      <div class="panel"><p class="panel-title">s<sub>i</sub>²</p><p class="muted">Variance of group i · within spread</p></div>
+    </div>
+
+    <h3>Splitting the total variation</h3>
+    <p class="formula small center">SST = SSB + SSW</p>
+    <div class="sst-bar" aria-hidden="true">
+      <div class="b" style="flex-basis:64.74%">SSB = 253.33 · between</div>
+      <div class="w" style="flex-basis:35.26%">SSW = 138.00 · within</div>
+    </div>
+    <p class="muted small center">SST = 391.33 (total, caching example)</p>
+    <div class="two-col">
+      <div class="panel rej-tint"><p class="panel-title">SSB</p><p>Variation explained by the groups</p></div>
+      <div class="panel accent"><p class="panel-title">SSW</p><p>Leftover variation (noise)</p></div>
+    </div>
+
+    <h3>The formulas</h3>
+    <div class="two-col">
+      <div class="panel">
+        <p class="panel-title">Between groups</p>
+        <p class="formula small">SSB = Σ n<sub>i</sub> (x̄<sub>i</sub> − x̿)²</p>
+        <p class="formula small">df = k − 1</p>
+        <p class="formula small">MSB = SSB / (k − 1)</p>
+      </div>
+      <div class="panel">
+        <p class="panel-title">Within groups</p>
+        <p class="formula small">SSW = Σ Σ (x<sub>ij</sub> − x̄<sub>i</sub>)²</p>
+        <p class="formula small">df = N − k</p>
+        <p class="formula small">MSW = SSW / (N − k)</p>
+      </div>
+    </div>
+    <div class="formula big">F = <span class="frac"><span>MSB</span><span>MSW</span></span></div>
+    <p class="callout">Shortcut: SSW = Σ (n<sub>i</sub> − 1) s<sub>i</sub>²</p>
+
+    <h3>The ANOVA table</h3>
+    <div class="table-wrap">
+      <table class="crit-table anova-table">
+        <thead><tr><th>Source</th><th>SS</th><th>df</th><th>MS</th><th>F</th></tr></thead>
+        <tbody>
+          <tr><td>Between groups</td><td>SSB</td><td>k − 1</td><td>SSB / (k − 1)</td><td>MSB / MSW</td></tr>
+          <tr><td>Within groups (error)</td><td>SSW</td><td>N − k</td><td>SSW / (N − k)</td><td></td></tr>
+          <tr><td>Total</td><td>SST</td><td>N − 1</td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small">The df add up too: (k − 1) + (N − k) = N − 1.</p>
+    <div class="quiz" id="quizDf" data-title="Degrees of freedom drill"></div>
+  </section>
+
+  <section class="card" id="example">
+    <h2>Example: three caching strategies</h2>
+    <div class="table-wrap">
+      <table class="crit-table anova-table" id="exData"></table>
+    </div>
+    <p class="ex-key">H₀: μ<sub>A</sub> = μ<sub>B</sub> = μ<sub>C</sub> &nbsp;·&nbsp; H₁: at least one mean differs &nbsp;·&nbsp; α = 0.05</p>
+
+    <h3>Look at the data first <small class="hint">— tap any dot to split its deviation</small></h3>
+    <div class="lab">
+      <svg id="exPlot" class="plot" role="img" aria-label="Dot plot of the fifteen response times by caching strategy, with group means and the grand mean"></svg>
+      <div class="legend">
+        <span><i class="sw line-mean"></i>Group mean</span>
+        <span><i class="sw line-grand"></i>Grand mean x̿ = 44.67</span>
+        <span><i class="sw rej"></i>Between part</span>
+        <span><i class="sw pv"></i>Within part</span>
+      </div>
+      <p class="calc-line" id="exDecomp"></p>
+      <p class="muted small">Every value's distance from the grand mean splits into a <b>between</b> part (its group mean vs the grand mean) and a <b>within</b> part (the value vs its own group mean). Square and add these over all 15 values and you get SST = SSB + SSW.</p>
+    </div>
+
+    <ol class="ex-steps" id="exSteps"></ol>
+    <div class="btn-row ex-controls">
+      <button class="btn primary" id="exNext">Show step 1</button>
+      <button class="btn" id="exAll">Show all steps</button>
+      <button class="btn" id="exHide">Hide steps</button>
+    </div>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <div class="part-divider" id="part3">
+    <span>Part 3</span>
+    <h2>After the F test</h2>
+    <p>Post hoc comparisons, effect size, and assumptions</p>
+  </div>
+
+  <section class="card" id="posthoc">
+    <h2>Post hoc tests: which groups differ?</h2>
+    <div class="three-col compact">
+      <div class="panel accent"><p class="panel-title">Tukey HSD</p><p>All pairwise comparisons</p><p class="muted">Most common default</p></div>
+      <div class="panel"><p class="panel-title">Bonferroni</p><p>Use α / m for each of m tests</p><p class="muted">Simple, conservative</p></div>
+      <div class="panel"><p class="panel-title">Scheffé</p><p>Any comparison, even combinations</p><p class="muted">Most conservative</p></div>
+    </div>
+    <p class="callout warn">Only run post hoc tests <b>after</b> a significant F.</p>
+
+    <h3>Tukey HSD for the caching example</h3>
+    <div class="formula big">HSD = q · √( MSW / n )</div>
+    <div class="lab" id="tkLab">
+      <div class="lab-toolbar">
+        <div class="seg" role="group" aria-label="Significance level" id="tk-alpha">
+          <button data-v="0.10">α = 0.10</button><button data-v="0.05">α = 0.05</button><button data-v="0.01">α = 0.01</button>
+        </div>
+      </div>
+      <p class="calc-line" id="tk-line"></p>
+      <div class="pair-list" id="tk-pairs"></div>
+      <p class="muted small">Two means are declared different when the gap between them is larger than HSD (the dashed line). q is the studentized-range critical value for k = 3 groups and 12 error df.</p>
+      <p class="verdict-banner keep" id="tk-read"></p>
+    </div>
+  </section>
+
+  <section class="card" id="effect">
+    <h2>Effect size: how much do groups matter?</h2>
+    <div class="formula big">η² = <span class="frac"><span>SSB</span><span>SST</span></span> = <span class="frac"><span>253.33</span><span>391.33</span></span> = 0.65</div>
+    <div class="sst-bar" aria-hidden="true">
+      <div class="b" style="flex-basis:64.74%">65% explained by caching strategy</div>
+      <div class="w" style="flex-basis:35.26%">35% noise</div>
+    </div>
+    <p class="lead center"><b>65%</b> of the variation in response time is explained by the caching strategy.</p>
+    <h3>Rough guide</h3>
+    <div class="eta-scale">
+      <div class="e1"><b>η² ≈ 0.01</b>small</div>
+      <div class="e2"><b>η² ≈ 0.06</b>medium</div>
+      <div class="e3"><b>η² ≥ 0.14</b>large</div>
+    </div>
+    <p class="takeaway">A significant F says an effect exists. η² says how big it is.</p>
+  </section>
+
+  <section class="card" id="assumptions">
+    <h2>Assumptions of ANOVA</h2>
+    <div class="three-col compact">
+      <div class="panel"><p class="panel-title">Independence</p><p class="muted">Random samples; groups do not influence each other</p></div>
+      <div class="panel"><p class="panel-title">Normality</p><p class="muted">Each group ≈ normal — check dot plots or histograms</p></div>
+      <div class="panel"><p class="panel-title">Equal variances</p><p class="muted">Rule of thumb: largest s / smallest s &lt; 2</p></div>
+    </div>
+    <p class="callout">Our example: s<sub>A</sub> = 3.81, s<sub>B</sub> = s<sub>C</sub> = 3.16 → ratio 1.20 &lt; 2 ✓ &nbsp; Formal check: Levene's test for equal variances.</p>
+
+    <h3>When assumptions fail</h3>
+    <div class="fail-map">
+      <div><b>Unequal variances</b><i>→</i><span>Welch's ANOVA</span></div>
+      <div><b>Strong skew or outliers</b><i>→</i><span>Log transform or Kruskal–Wallis (Module 14)</span></div>
+      <div><b>Same subjects measured repeatedly</b><i>→</i><span>Repeated-measures ANOVA</span></div>
+    </div>
+    <p class="muted small">ANOVA is fairly robust to mild non-normality when group sizes are equal.</p>
+    <div class="quiz" id="quizMethod" data-title="Which method fits?"></div>
+  </section>
+
+  <!-- ============ PART 4 ============ -->
+  <div class="part-divider" id="part4">
+    <span>Part 4</span>
+    <h2>Two-way ANOVA</h2>
+    <p>Two factors at once — and how they interact</p>
+  </div>
+
+  <section class="card" id="two-way">
+    <h2>Two factors at once</h2>
+    <div class="three-col compact">
+      <div class="panel"><p class="panel-title">Factor A</p><p>Caching strategy</p><p class="muted">A, B, C (3 levels)</p></div>
+      <div class="panel"><p class="panel-title">Factor B</p><p>Load level</p><p class="muted">Low, High (2 levels)</p></div>
+      <div class="panel accent"><p class="panel-title">Interaction A × B</p><p>Does the best cache depend on load?</p><p class="muted">Three questions, one experiment</p></div>
+    </div>
+
+    <h3>The two-way model <small class="hint">— tap a term</small></h3>
+    <div class="formula big model" id="model">
+      Y<sub>ijk</sub> =
+      <button data-t="mu">μ</button> +
+      <button data-t="a">α<sub>i</sub></button> +
+      <button data-t="b">β<sub>j</sub></button> +
+      <button data-t="ab">(αβ)<sub>ij</sub></button> +
+      <button data-t="e">ε<sub>ijk</sub></button>
+    </div>
+    <div class="panel" id="modelExplain"></div>
+  </section>
+
+  <section class="card" id="interaction">
+    <h2>Seeing interaction</h2>
+    <p class="lead">Plot the cell means with one line per load level. <b>Parallel lines</b> mean the load effect is the same for every cache. <b>Non-parallel lines</b> mean the factors interact.</p>
+    <div class="lab" id="ixLab">
+      <p class="lab-title">Interaction lab</p>
+      <div class="lab-toolbar">
+        <button class="btn small" data-ix="none">No interaction</button>
+        <button class="btn small" data-ix="some">Interaction</button>
+        <button class="btn small" data-ix="flip">Ranking flips</button>
+      </div>
+      <div class="lab-grid">
+        <div class="controls">
+          <label>Load effect (high − low) <output id="ix-l-o"></output>
+            <input type="range" id="ix-l" min="0" max="20" step="1" value="8"></label>
+          <label>Interaction strength <output id="ix-i-o"></output>
+            <input type="range" id="ix-i" min="-8" max="8" step="0.5" value="0"></label>
+          <div class="table-wrap">
+            <table class="crit-table cell-table" id="ix-table"></table>
+          </div>
+        </div>
+        <div>
+          <svg id="ixPlot" class="plot" role="img" aria-label="Interaction plot of mean response time by caching strategy, one line per load level"></svg>
+          <div class="legend">
+            <span><i class="sw line-low"></i>Low load</span>
+            <span><i class="sw line-high"></i>High load</span>
+          </div>
+        </div>
+      </div>
+      <p class="verdict-banner" id="ix-verdict"></p>
+    </div>
+  </section>
+
+  <section class="card" id="two-way-table">
+    <h2>The two-way ANOVA table</h2>
+    <p class="lead">Factor A has a levels, factor B has b levels, and every cell holds n observations. Change the design and watch the degrees of freedom.</p>
+    <div class="lab">
+      <div class="lab-grid">
+        <div class="controls">
+          <label>Levels of A (a) <output id="tw-a-o"></output>
+            <input type="range" id="tw-a" min="2" max="6" step="1" value="3"></label>
+          <label>Levels of B (b) <output id="tw-b-o"></output>
+            <input type="range" id="tw-b" min="2" max="6" step="1" value="2"></label>
+          <label>Observations per cell (n) <output id="tw-n-o"></output>
+            <input type="range" id="tw-n" min="2" max="10" step="1" value="4"></label>
+        </div>
+        <div class="table-wrap">
+          <table class="crit-table anova-table" id="tw-table"></table>
+        </div>
+      </div>
+    </div>
+    <p class="callout warn">Check the <b>interaction row first</b>. If it is significant, the main effects cannot be read on their own.</p>
+
+    <h3>Reading two-way output <small class="hint">— illustrative</small></h3>
+    <div class="table-wrap">
+      <table class="crit-table anova-table">
+        <thead><tr><th>Source</th><th>df</th><th>F</th><th>p-value</th><th>Conclusion</th></tr></thead>
+        <tbody>
+          <tr><td>Caching strategy</td><td>2</td><td>12.4</td><td>&lt; 0.001</td><td><span class="tag bad">Significant</span></td></tr>
+          <tr><td>Load level</td><td>1</td><td>11.2</td><td>0.004</td><td><span class="tag bad">Significant</span></td></tr>
+          <tr><td>Caching × Load</td><td>2</td><td>0.94</td><td>0.41</td><td><span class="tag good">Not significant</span></td></tr>
+          <tr><td>Error</td><td>18</td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="callout"><b>Reading:</b> no interaction → both caching and load affect latency, and the caching ranking is the same under both loads.</p>
+    <div class="quiz" id="quizInteraction" data-title="Interaction or not?"></div>
+  </section>
+
+  <!-- ============ PRACTICE ============ -->
+  <div class="part-divider" id="practice">
+    <span>Practice</span>
+    <h2>Check your understanding</h2>
+    <p>Myths, a full hand calculation, and a calculator for your own data</p>
+  </div>
+
+  <section class="card" id="mistakes">
+    <h2>Common mistakes</h2>
+    <p class="lead">True or false? Answer each statement, then read why.</p>
+    <div class="quiz" id="quizMyth" data-title="True or false?"></div>
+  </section>
+
+  <section class="card" id="challenge">
+    <h2>In-class challenge</h2>
+    <p class="lead">Three page designs are tested for task completion time (seconds), 4 users each. Do the designs differ at α = 0.05?</p>
+    <div class="two-col">
+      <div class="panel">
+        <p class="panel-title">Given</p>
+        <div class="table-wrap">
+          <table class="crit-table anova-table compact-table">
+            <thead><tr><th>Design</th><th>Times (s)</th></tr></thead>
+            <tbody>
+              <tr><td>D1</td><td>20, 22, 19, 23</td></tr>
+              <tr><td>D2</td><td>25, 27, 26, 26</td></tr>
+              <tr><td>D3</td><td>21, 24, 22, 21</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">k = 3 designs, n = 4 users each, N = 12. Use the F table in the F distribution section for F-crit.</p>
+      </div>
+      <form class="panel challenge-form" id="chForm" autocomplete="off">
+        <label class="tri">1. Group means x̄₁, x̄₂, x̄₃
+          <span><input name="m1" inputmode="decimal" aria-label="Mean of D1"><input name="m2" inputmode="decimal" aria-label="Mean of D2"><input name="m3" inputmode="decimal" aria-label="Mean of D3"></span></label>
+        <label>2. Grand mean x̿ <input name="grand" inputmode="decimal"></label>
+        <label>3. SSB <input name="ssb" inputmode="decimal"></label>
+        <label>4. MSB <input name="msb" inputmode="decimal"></label>
+        <label>5. SSW <input name="ssw" inputmode="decimal"></label>
+        <label>6. MSW <input name="msw" inputmode="decimal"></label>
+        <label>7. F <input name="F" inputmode="decimal"></label>
+        <label>8. F-crit (α = 0.05) <input name="crit" inputmode="decimal" placeholder="from the F table"></label>
+        <label>9. Decision
+          <select name="dec"><option value="">choose…</option><option value="r">Reject H₀</option><option value="f">Fail to reject H₀</option></select></label>
+        <label>10. η² <input name="eta" inputmode="decimal" placeholder="e.g. 0.42"></label>
+        <div class="btn-row">
+          <button class="btn primary" type="submit">Check answers</button>
+          <button class="btn" type="button" id="chSolve">Show solution</button>
+        </div>
+        <p class="tr-fb" id="chFb" aria-live="polite"></p>
+      </form>
+    </div>
+    <div class="solution" id="chSolution" hidden></div>
+  </section>
+
+  <section class="card" id="calculator">
+    <h2>One-way ANOVA calculator</h2>
+    <p class="lead">Type or paste your own data, one group per row. You get the full ANOVA table, the decision, the effect size and the Tukey comparisons. It starts loaded with the caching example.</p>
+    <div class="lab">
+      <div class="lab-toolbar">
+        <div class="seg" role="group" aria-label="Significance level" id="calcAlpha">
+          <button data-v="0.10">α = 0.10</button><button data-v="0.05">α = 0.05</button><button data-v="0.01">α = 0.01</button>
+        </div>
+        <button class="btn small" id="calcAdd">+ Add group</button>
+        <button class="btn small" id="calcChallenge">Load the challenge data</button>
+        <button class="btn small" id="calcReset">Reset to the caching example</button>
+      </div>
+      <div class="calc-groups" id="calcGroups"></div>
+      <p class="muted small">Separate values with spaces or commas. Use a dot for decimals (12.5).</p>
+      <div id="calcOut"></div>
+    </div>
+  </section>
+
+  <section class="card" id="summary">
+    <h2>From many means to one decision</h2>
+    <ol class="chain">
+      <li>Plot data</li><li>H₀: all μ equal</li><li>SSB, SSW</li><li>F = MSB / MSW</li><li>Decide</li><li>Post hoc + η²</li>
+    </ol>
+    <p class="lead">ANOVA compares means by asking: is the between-group <b>signal</b> bigger than the within-group <b>noise</b>?</p>
+    <p class="lead">Significant F → find <b>which</b> groups differ → report <b>how much</b> it matters.</p>
+    <div class="panel exit">
+      <p class="panel-title">Exit ticket</p>
+      <label for="exitText">ANOVA is a test about means. Why is it called analysis of <em>variance</em>?</label>
+      <textarea id="exitText" rows="3" placeholder="Write your answer in a sentence or two…"></textarea>
+      <div class="btn-row"><button class="btn" id="exitShow">Compare with a model answer</button></div>
+      <p class="model-answer" id="exitModel" hidden>Because it decides about the means by comparing two variances. MS between measures how much the group means vary around the grand mean, and MS within measures how much the values vary inside the groups. If all population means are equal, both estimate the same noise and F ≈ 1. If the means really differ, the between-group variance is inflated and F becomes large.</p>
+    </div>
+    <p class="next-up">Next → <b>Simple Linear Regression and Correlation</b></p>
+  </section>
+
+  <footer class="foot">Module 10 · Analysis of Variance · Statistics &amp; Probability. Critical values and p-values are computed from the F and studentized-range distributions in your browser.</footer>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
